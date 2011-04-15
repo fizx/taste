@@ -1,0 +1,16 @@
+Milestone 1:
+- realtime from zoie
+- text fields
+Milestone 2: 
+- fanout and timed replication
+- document partitioning
+- token partitioning
+- estimated facets
+- identity facets
+- fields: string, text, numeric (different numeric types)
+- multilingual defaults
+- good spellchecker default
+- highlighting
+- instant/autocomplete
+- queue/batch
+- multicore
