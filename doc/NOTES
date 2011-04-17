@@ -1,3 +1,87 @@
+Architecture:
+ ----------------------------------------
+| http/json        | thrift              |
+|----------------------------------------|
+|              internal api              |
+|----------------------------------------|
+|              distribution              |
+|----------------------------------------|
+|              storage api               |
+|----------------------------------------|
+|             managed indexes            |
+ ----------------------------------------
+ 
+table
+host
+shard
+range
+
+- For indexes, there might be a copy/prune strategy that could work.
+- Service is k/v wrt
+  - indexes -- 2ndary, just collections of partitions
+  - index-partitions
+  - documents
+  - pseudo for queries
+  
+Partitioning
+  - Document
+  - Term
+Operations
+  - index a document
+  - query              -
+  - split a partition  -
+  - join a partition   -
+  - move a shard       - 
+  - add an index       - 
+  - remove an index    - 
+  
+hierarchical routing! Each index has its own ring (set)!  There may be a ring of indexes, but global resource management!?
+
+key = [index, doc]
+key = [index, query]
+
+module Partition
+end
+
+module
+  
+class API
+  def index(doc, index)
+    partition = getPartition(doc, index)
+    partition.put(doc)
+  end
+  
+  def query(query, index)
+    partitions = getPartitions(query, index)
+    partitions.getAll(query)
+  end
+  
+  def split(partition)
+    p
+  end
+end
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+in the voldemort model, we should be able to add/remove all the things
+
+trait Table {
+  def get()
+}
+
+
+
 Milestone 1:
 - realtime from zoie
 - text fields

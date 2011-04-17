@@ -9,23 +9,15 @@ import org.apache.lucene.analysis.miscellaneous._
 import org.apache.lucene.analysis._
 import com.twitter.conversions.time._
 import com.twitter.util._
+import com.km.taste._
 import org.apache.lucene.search._
 import org.apache.lucene.index._
 
-class ManagedIndexFactorySpec extends Spec with ShouldMatchers with BeforeAndAfterEach {
+class ManagedIndexSpec extends AbstractSpec {
   val tmp = new File("/tmp/taste")
-  var factory: ManagedIndexFactory = null
+  var factory: ManagedIndex = null
   var writer: ManagedIndexWriter = null
   var i = 0
-
-  def doc(s: String) = {
-    val d = new Document()
-    val t = new Token(s, 0, s.length)
-    val ts = new SingleTokenTokenStream(t)
-    val f = new Field("default", ts)
-    d.add(f)
-    d
-  }
 
   def addAndRead(string: String = "hello") = {
     writer.addDocument(doc(string))
@@ -36,7 +28,8 @@ class ManagedIndexFactorySpec extends Spec with ShouldMatchers with BeforeAndAft
   override def beforeEach {
     FileUtils.deleteQuietly(tmp)
     tmp.mkdirs()
-    factory = ManagedIndexFactory(tmp)
+    factory = ManagedIndex(tmp)
+    factory.open()
     writer = factory.getWriter
     i = 0
   }
@@ -45,12 +38,6 @@ class ManagedIndexFactorySpec extends Spec with ShouldMatchers with BeforeAndAft
     factory.close()
   }
   
-  def inLessThan(d: Duration)(block: => Any) {
-    val before = Time.now        
-    block
-    (Time.now - before) should (be < d)
-  }
-
   describe("A ManagedIndexReader") {
 
     describe("recurring reads and writes") {
@@ -98,7 +85,15 @@ class ManagedIndexFactorySpec extends Spec with ShouldMatchers with BeforeAndAft
         writer.numDocsOnDisk should equal(1)
       }
       
-      it("should be able to quickly delete document from disk") {
+      it("should be able to delete document from limbo") {
+        for (i <- 1 to 10) { addAndRead(i.toString) }
+        val old = writer.swapRamDirs
+        writer.deleteDocuments(new Term("default", "1"))
+        writer.addToDiskAndReopenReader(old)
+        writer.numDocsOnDisk should equal(9)
+      }
+      
+      it("should be able to delete document from disk") {
         for (i <- 1 to 10) { addAndRead(i.toString) }
         writer.forceRealtimeToDisk()
         writer.numDocsOnDisk should equal(10)
