@@ -1,0 +1,4 @@
+- all fields stored
+- no result pagination
+- ugly ManagedLuceneStore.get() match block
+- "default" field
