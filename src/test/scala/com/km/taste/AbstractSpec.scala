@@ -3,6 +3,7 @@ package com.km.taste
 import org.scalatest._
 import org.scalatest.matchers.ShouldMatchers
 import java.io._
+import java.nio._
 import org.apache.commons.io._
 import org.apache.lucene.document._
 import org.apache.lucene.analysis.miscellaneous._
@@ -19,6 +20,13 @@ abstract class AbstractSpec extends Spec with ShouldMatchers with BeforeAndAfter
     val f = new Field("default", s, Field.Store.YES, Field.Index.ANALYZED)
     d.add(f)
     d
+  }
+  
+  def s2buf(s: String) = ByteBuffer.wrap(s.getBytes)
+  def buf2s(b: ByteBuffer) = {
+    val a = new Array[Byte](b.remaining)
+    b.get(a)
+    new String(a)
   }
   
   def inLessThan(d: Duration)(block: => Any) {

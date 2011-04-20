@@ -7,6 +7,8 @@ class TasteProject(info: ProjectInfo) extends DefaultProject(info) {
   val ioVersion         = "2.0.1"
   val utilVersion       = "1.8.9"
   
+  val sqlite = "org.xerial" % "sqlite-jdbc" % "3.7.2"
+  
   val io = "commons-io" % "commons-io" % ioVersion
   val codec = "commons-codec" % "commons-codec" % "1.5"
   
