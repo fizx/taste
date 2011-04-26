@@ -1,6 +1,7 @@
 import sbt._
+import com.github.olim7t.sbtscalariform._
 
-class TasteProject(info: ProjectInfo) extends DefaultProject(info) {
+class TasteProject(info: ProjectInfo) extends DefaultProject(info) with ScalariformPlugin {
   val slf4jVersion      = "1.6.1"
   val luceneVersion     = "3.1.0"
   val scalaTestVersion  = "1.3"
@@ -27,6 +28,7 @@ class TasteProject(info: ProjectInfo) extends DefaultProject(info) {
   
   val scalaTest = "org.scalatest" % "scalatest" % "1.3" % "test"
   val mockito = "org.mockito" % "mockito-all" % "1.8.5" % "test"
+  
 
   // val repo1 = "repo1" at 
   //     "http://repo1.maven.org/maven2/"

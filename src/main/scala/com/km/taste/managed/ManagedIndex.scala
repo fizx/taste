@@ -36,14 +36,14 @@ class ManagedIndexImpl(path: File,
   pool: ExecutorService,
   iwcfg: () => IndexWriterConfig)
   extends ManagedIndex {
-    
+
   var dir: Directory = null
   var writer: ManagedIndexWriter = null
-    
+
   def open() = {
     dir = FSDirectory.open(path)
     writer = new ManagedIndexWriter(dir, iwcfg(), pool)
-    writer.commit()    
+    writer.commit()
   }
 
   def getReader = writer.getReader

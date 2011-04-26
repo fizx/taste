@@ -15,7 +15,7 @@ object ThriftLuceneCodec extends LuceneCodec {
   val factory = new TBinaryProtocol.Factory
   def encode(lp: LucenePacket) = {
     val tp = new thrift.LucenePacket
-    lp.docs.map { doc => 
+    lp.docs.map { doc =>
       val tdoc = new thrift.Document
       doc.getFields.map { field =>
         val tfield = new thrift.Field
@@ -25,22 +25,22 @@ object ThriftLuceneCodec extends LuceneCodec {
       }
       tp.addToDocuments(tdoc)
     }
-    lp.query.map { query => 
+    lp.query.map { query =>
       tp.setQuery(new thrift.Query(query))
     }
-    lp.terms.map { term => 
+    lp.terms.map { term =>
       val tterm = new thrift.Term
       tterm.setName(term.field)
       tterm.setValue(term.text)
       tp.addToTerms(tterm)
     }
-    lp.results.map { result => 
+    lp.results.map { result =>
       val tresult = new thrift.Result
       tresult.setKey(result.key)
       tresult.setScore(result.score)
       tp.addToResults(tresult)
     }
-    lp.counter.map { counter => 
+    lp.counter.map { counter =>
       tp.setCounter(counter)
     }
     val baos = new ByteArrayOutputStream
@@ -50,7 +50,7 @@ object ThriftLuceneCodec extends LuceneCodec {
     val out = ByteBuffer.wrap(baos.toByteArray)
     out
   }
-  
+
   def decode(b: ByteBuffer) = {
     val ba = new Array[Byte](b.remaining)
     b.get(ba)
@@ -59,10 +59,10 @@ object ThriftLuceneCodec extends LuceneCodec {
     val protocol = factory.getProtocol(transport)
     val tp = new thrift.LucenePacket
     tp.read(protocol)
-    val docs = if(tp.isSetDocuments) {
-      tp.getDocuments.map { tdoc => 
+    val docs = if (tp.isSetDocuments) {
+      tp.getDocuments.map { tdoc =>
         val doc = new Document
-        tdoc.fields.map { tfield => 
+        tdoc.fields.map { tfield =>
           doc.add(new Field(tfield.getName, tfield.getValue, Field.Store.YES, Field.Index.ANALYZED))
         }
         doc
@@ -70,31 +70,31 @@ object ThriftLuceneCodec extends LuceneCodec {
     } else {
       Seq()
     }
-    val query = if(tp.isSetQuery) {
+    val query = if (tp.isSetQuery) {
       Some(tp.getQuery.getContent)
     } else {
       None
     }
-    val terms = if(tp.isSetTerms) {
-      tp.getTerms.map { tterm => 
+    val terms = if (tp.isSetTerms) {
+      tp.getTerms.map { tterm =>
         new Term(tterm.getName, tterm.getValue)
       }
     } else {
       Seq()
-    }    
-    val results = if(tp.isSetResults) {
-      tp.getResults.map { tresult => 
+    }
+    val results = if (tp.isSetResults) {
+      tp.getResults.map { tresult =>
         new Result(tresult.getKey, tresult.getScore)
       }
     } else {
       Seq()
     }
-    val counter = if(tp.isSetCounter) {
+    val counter = if (tp.isSetCounter) {
       Some(tp.getCounter)
     } else {
       None
     }
-    
+
     new LucenePacket(docs, query, terms, counter, results)
   }
 }

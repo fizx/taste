@@ -21,11 +21,11 @@ class ManagedLuceneStore(factory: ManagedIndex, codec: LuceneCodec = ThriftLucen
   val selector = new FieldSelector {
     def accept(s: String) = FieldSelectorResult.LOAD
   }
-  
+
   def reader = factory.getReader
   def searcher = factory.getSearcher
   var writer: ManagedIndexWriter = null
-  
+
   def get(buf: ByteBuffer) = {
     val packet = codec.decode(buf)
     println(packet)
@@ -34,50 +34,50 @@ class ManagedLuceneStore(factory: ManagedIndex, codec: LuceneCodec = ThriftLucen
         val parsed = queryParser.parse(query, "__no_default__").asInstanceOf[Query]
         val td = searcher.search(parsed, 10)
         println(td.scoreDocs)
-        val results = td.scoreDocs.map { sd => 
+        val results = td.scoreDocs.map { sd =>
           println(sd.doc.toString)
           val doc = searcher.doc(sd.doc, selector)
           println(doc.getFields)
           val field = doc.getField("default")
           println(field)
           val key = field.stringValue
-          Result(key, sd.score) 
+          Result(key, sd.score)
         }
         LucenePacket(results = results, counter = Some(td.totalHits))
       }
       case LucenePacket(_, _, _, Some(count), _) => {
-        val counter = packet.counter.map{ x => reader.numDocs }
+        val counter = packet.counter.map { x => reader.numDocs }
         LucenePacket(counter = counter)
       }
       case _ => LucenePacket()
     })
   }
-  
+
   def put(buf: ByteBuffer) = {
     val packet = codec.decode(buf)
-    packet.docs.map { doc => 
+    packet.docs.map { doc =>
       writer.addDocument(doc)
     }
     codec.encode(LucenePacket())
   }
-  
+
   def remove(buf: ByteBuffer) = {
     val packet = codec.decode(buf)
-    packet.terms.map { term => 
+    packet.terms.map { term =>
       writer.deleteDocuments(term)
     }
-    packet.query.map { query => 
+    packet.query.map { query =>
       val parsed = queryParser.parse(query, "__no_default__").asInstanceOf[Query]
       writer.deleteDocuments(parsed)
     }
     codec.encode(LucenePacket())
   }
-  
+
   def open() = {
     factory.open()
     writer = factory.getWriter
   }
-  
+
   def close() = {
     factory.close()
   }

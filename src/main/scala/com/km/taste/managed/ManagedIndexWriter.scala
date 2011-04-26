@@ -21,16 +21,16 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorS
   var ramReader = IndexReader.open(ramDir)
   var inLimbo = new LinkedBlockingQueue[Directory]
   var pendingDeletes = new LinkedBlockingQueue[Query]
-  
+
   def reopenRam() = { ramWriter.commit(); ramReader = IndexReader.open(ramDir) }
   def reopenDisk() = baseReader = IndexReader.open(this, true)
-  
+
   override def addDocument(doc: Document) = addDocument(doc, getAnalyzer)
   override def addDocument(doc: Document, analyzer: Analyzer) = {
     ramWriter.addDocument(doc, analyzer)
     reopenRam()
   }
-    
+
   override def deleteDocuments(term: Term): Unit = deleteDocuments(new TermQuery(term))
   override def deleteDocuments(queries: Query*): Unit = queries.foreach(q => deleteDocuments(q))
   override def deleteDocuments(query: Query): Unit = {
@@ -40,28 +40,27 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorS
     super.deleteDocuments(query)
     reopenDisk()
   }
-    
-  
+
   override def deleteAll() = {
     ramWriter.deleteAll()
     reopenRam()
     super.deleteAll()
     reopenDisk()
   }
-  
+
   override def getReader() = {
     new MultiReader(ramReader, baseReader)
   }
-    
+
   def forceRealtimeToDisk() = synchronized { addToDiskAndReopenReader(swapRamDirs) }
-  
+
   private[managed] def addToDiskAndReopenReader(dir: Directory) {
     addIndexes(dir)
     super.deleteDocuments(pendingDeletes.toArray(Array[Query]()): _*)
     pendingDeletes.clear()
     baseReader = super.getReader
   }
-  
+
   private[managed] def swapRamDirs() = {
     val newRamDir = new RAMDirectory
     val newRamWriter = new IndexWriter(newRamDir, ramCfg)
@@ -79,7 +78,7 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorS
     }
     oldRamDir
   }
-  
+
   def numDocsOnDisk() = baseReader.numDocs
   def numDocsInRAM() = ramReader.numDocs
 }

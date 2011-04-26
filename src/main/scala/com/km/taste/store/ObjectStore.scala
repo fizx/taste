@@ -1,6 +1,6 @@
 package com.km.taste.store
 
-trait ObjectStore[K, V]{
+trait ObjectStore[K, V] {
   def get(key: K, timestamp: Long)(implicit range: Range): V
   def put(key: K, value: V, timestamp: Long)(implicit range: Range): Unit
   def delete(key: K, timestamp: Long)(implicit range: Range): Unit

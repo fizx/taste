@@ -14,7 +14,7 @@ object SQLiteStore {
 class SQLiteStore(val path: File) extends RawStore {
   Class.forName("org.sqlite.JDBC")
   var conn: Connection = null
-  
+
   def get(key: ByteBuffer, timestamp: Long = System.currentTimeMillis)(implicit range: Range) = {
     val stmt = conn.prepareStatement("SELECT v FROM kv WHERE k = ?")
     stmt.setBytes(1, key)
@@ -24,11 +24,11 @@ class SQLiteStore(val path: File) extends RawStore {
     } else {
       ByteBuffer.allocate(0)
     }
-    
+
     stmt.close
-    out    
+    out
   }
-  
+
   def put(key: ByteBuffer, value: ByteBuffer, timestamp: Long = System.currentTimeMillis)(implicit range: Range) {
     val stmt = conn.prepareStatement("INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)")
     stmt.setBytes(1, key)
@@ -36,31 +36,31 @@ class SQLiteStore(val path: File) extends RawStore {
     stmt.executeUpdate()
     stmt.close
   }
-  
+
   def delete(key: ByteBuffer, timestamp: Long = System.currentTimeMillis)(implicit range: Range) {
     val stmt = conn.prepareStatement("DELETE FROM kv WHERE k = ?")
     stmt.setBytes(1, key)
     stmt.executeUpdate()
     stmt.close
   }
-  
+
   def open() = {
     conn = DriverManager.getConnection("jdbc:sqlite:" + path.getAbsolutePath)
     val stmt = conn.createStatement()
     stmt.executeUpdate("CREATE TABLE IF NOT EXISTS kv (k BLOB PRIMARY KEY, v BLOB)")
     stmt.close
   }
-  
+
   def close() = {
     conn.close
   }
-  
+
   def truncate() = {
     val stmt = conn.prepareStatement("DELETE FROM kv")
     stmt.executeUpdate()
     stmt.close
   }
-  
+
   def scanFrom(key: Option[ByteBuffer])(implicit range: Range) = {
     new Iterator[Tuple2[ByteBuffer, ByteBuffer]] {
       def hasNext = false
