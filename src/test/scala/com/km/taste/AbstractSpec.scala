@@ -21,16 +21,16 @@ abstract class AbstractSpec extends Spec with ShouldMatchers with BeforeAndAfter
     d.add(f)
     d
   }
-  
+
   def s2buf(s: String) = ByteBuffer.wrap(s.getBytes)
   def buf2s(b: ByteBuffer) = {
     val a = new Array[Byte](b.remaining)
     b.get(a)
     new String(a)
   }
-  
+
   def inLessThan(d: Duration)(block: => Any) {
-    val before = Time.now        
+    val before = Time.now
     block
     (Time.now - before) should (be < d)
   }

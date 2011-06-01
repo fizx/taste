@@ -10,8 +10,12 @@ import org.apache.lucene.index._
 import java.util.concurrent._
 import org.apache.lucene.util.Version._
 
+class DeletedFilterIndexReader(deletes: LinkedBlockingQueue[Int], base: IndexReader) extends FilterIndexReader(base) {
+  override def directory() = base.directory()
+}
+
 class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorService) extends IndexWriter(dir, cfg) {
-  commit()
+  super.commit()
   def ramCfg = new IndexWriterConfig(LUCENE_31, analyzer)
   val analyzer = new StandardAnalyzer(LUCENE_31)
   var baseReader = IndexReader.open(dir)
@@ -19,11 +23,17 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorS
   var ramWriter = new IndexWriter(ramDir, ramCfg)
   ramWriter.commit()
   var ramReader = IndexReader.open(ramDir)
-  var inLimbo = new LinkedBlockingQueue[Directory]
-  var pendingDeletes = new LinkedBlockingQueue[Query]
+  var pendingDeletes = new LinkedBlockingQueue[Int]
 
   def reopenRam() = { ramWriter.commit(); ramReader = IndexReader.open(ramDir) }
-  def reopenDisk() = baseReader = IndexReader.open(this, true)
+  def reopenDisk() = baseReader = new DeletedFilterIndexReader(pendingDeletes, IndexReader.open(this, true))
+
+  override def updateDocument(term: Term, doc: Document) = updateDocument(term, doc, getAnalyzer)
+  override def updateDocument(term: Term, doc: Document, analyzer: Analyzer) = {
+    deleteDocuments(term)
+    ramWriter.updateDocument(term, doc, analyzer)
+    reopenRam()
+  }
 
   override def addDocument(doc: Document) = addDocument(doc, getAnalyzer)
   override def addDocument(doc: Document, analyzer: Analyzer) = {
@@ -31,17 +41,24 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorS
     reopenRam()
   }
 
-  override def deleteDocuments(term: Term): Unit = deleteDocuments(new TermQuery(term))
+  override def deleteDocuments(term: Term): Unit = {
+    ramWriter.deleteDocuments(term)
+    val td = baseReader.termDocs(term)
+    while (td.next()) {
+      pendingDeletes.offer(td.doc())
+    }
+    td.close
+  }
+
   override def deleteDocuments(queries: Query*): Unit = queries.foreach(q => deleteDocuments(q))
   override def deleteDocuments(query: Query): Unit = {
-    pendingDeletes.offer(query)
     ramWriter.deleteDocuments(query)
     reopenRam()
     super.deleteDocuments(query)
     reopenDisk()
   }
 
-  override def deleteAll() = {
+  override def deleteAll() = synchronized {
     ramWriter.deleteAll()
     reopenRam()
     super.deleteAll()
@@ -49,7 +66,9 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorS
   }
 
   override def getReader() = {
-    new MultiReader(ramReader, baseReader)
+    new MultiReader(ramReader, baseReader) {
+      override def directory() = baseReader.directory()
+    }
   }
 
   def forceRealtimeToDisk() = synchronized { addToDiskAndReopenReader(swapRamDirs) }
