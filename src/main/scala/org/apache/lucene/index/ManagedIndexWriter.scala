@@ -19,6 +19,7 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: Scheduled
       if (numDocsInRAM() > 0) forceRealtimeToDisk() 
     }
   }
+
   val flushFuture = pool.scheduleWithFixedDelay(flushThread, flushEvery, flushEvery, TimeUnit.MILLISECONDS)
   
   override def close() = {
