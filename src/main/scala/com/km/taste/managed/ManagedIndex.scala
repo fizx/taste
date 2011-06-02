@@ -43,7 +43,6 @@ class ManagedIndexImpl(path: File,
   def open() = {
     dir = FSDirectory.open(path)
     writer = new ManagedIndexWriter(dir, iwcfg(), pool)
-    writer.commit()
   }
 
   def getReader = writer.getReader

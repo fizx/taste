@@ -1,7 +1,9 @@
 import sbt._
 import com.github.olim7t.sbtscalariform._
 
-class TasteProject(info: ProjectInfo) extends DefaultProject(info) with ScalariformPlugin {
+class TasteProject(info: ProjectInfo) extends DefaultProject(info) 
+  // with ScalariformPlugin 
+  {
   val slf4jVersion      = "1.6.1"
   val luceneVersion     = "3.1.0"
   val scalaTestVersion  = "1.3"

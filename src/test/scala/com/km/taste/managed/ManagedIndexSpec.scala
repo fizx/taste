@@ -65,20 +65,20 @@ class ManagedIndexSpec extends AbstractSpec {
         writer.updateDocument(new Term("default", "hello"), doc("hello"))
         factory.getReader.numDocs() should equal(1)
       }
-
+      // 
       it("should take much less than 1ms to get the reader") {
         val before = Time.now
         for (i <- 1 to 10) { factory.getReader }
         (Time.now - before).inMillis.toInt should (be < 3)
       }
-
+      
       it("should be able to merge back to the main reader") {
         for (i <- 1 to 10) { addAndRead() }
         writer.forceRealtimeToDisk()
         writer.numDocsOnDisk should equal(i)
         writer.numDocsInRAM should equal(0)
       }
-
+      
       it("should be able to quickly delete document in RAM") {
         for (i <- 1 to 10) { addAndRead(i.toString) }
         writer.numDocsInRAM should equal(10)
@@ -86,25 +86,17 @@ class ManagedIndexSpec extends AbstractSpec {
           writer.deleteDocuments(new Term("default", "1"))
         }
         writer.numDocsInRAM should equal(9)
-
+      
         inLessThan(10.millis) {
           for (i <- 2 to 9) {
             writer.deleteDocuments(new Term("default", i.toString))
           }
         }
         writer.numDocsInRAM should equal(1)
-
+      
         writer.forceRealtimeToDisk()
         writer.numDocsInRAM should equal(0)
         writer.numDocsOnDisk should equal(1)
-      }
-
-      it("should be able to delete document from limbo") {
-        for (i <- 1 to 10) { addAndRead(i.toString) }
-        val old = writer.swapRamDirs
-        writer.deleteDocuments(new Term("default", "1"))
-        writer.addToDiskAndReopenReader(old)
-        writer.numDocsOnDisk should equal(9)
       }
 
       it("should be able to delete document from disk") {

@@ -1,6 +1,5 @@
-package com.km.taste.managed
+package org.apache.lucene.index
 
-import org.apache.lucene.index._
 import org.apache.lucene.store._
 import org.apache.lucene.analysis._
 import org.apache.lucene.analysis.standard._
@@ -10,29 +9,38 @@ import org.apache.lucene.index._
 import java.util.concurrent._
 import org.apache.lucene.util.Version._
 
-class DeletedFilterIndexReader(deletes: LinkedBlockingQueue[Int], base: IndexReader) extends FilterIndexReader(base) {
-  override def directory() = base.directory()
-}
+class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorService) extends 
+      IndexWriter(dir, cfg) {
+        
+  val termInfosIndexDivisor = 128
 
-class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorService) extends IndexWriter(dir, cfg) {
   super.commit()
   def ramCfg = new IndexWriterConfig(LUCENE_31, analyzer)
   val analyzer = new StandardAnalyzer(LUCENE_31)
-  var baseReader = IndexReader.open(dir)
+  var baseReader: IndexReader = null; reopenDisk()
   var ramDir = new RAMDirectory
   var ramWriter = new IndexWriter(ramDir, ramCfg)
   ramWriter.commit()
   var ramReader = IndexReader.open(ramDir)
-  var pendingDeletes = new LinkedBlockingQueue[Int]
 
   def reopenRam() = { ramWriter.commit(); ramReader = IndexReader.open(ramDir) }
-  def reopenDisk() = baseReader = new DeletedFilterIndexReader(pendingDeletes, IndexReader.open(this, true))
+  
+  /**
+   * Tricky code.  This is the NRT reopen, however we open the reader as an unlocked writable reader!!
+   * This would be unsafe if we ever flushed it to disk, but we're just using its capabilities of 
+   * tracking deletes, which a read-only reader doesn't have.
+   */
+  def reopenDisk() = {
+    flush(false, true)
+    baseReader = new DirectoryReader(getDirectory(), segmentInfos, null, false, termInfosIndexDivisor, null) {
+      override def acquireWriteLock() = ()
+    }
+  }
 
   override def updateDocument(term: Term, doc: Document) = updateDocument(term, doc, getAnalyzer)
   override def updateDocument(term: Term, doc: Document, analyzer: Analyzer) = {
     deleteDocuments(term)
-    ramWriter.updateDocument(term, doc, analyzer)
-    reopenRam()
+    addDocument(doc, analyzer)
   }
 
   override def addDocument(doc: Document) = addDocument(doc, getAnalyzer)
@@ -43,11 +51,9 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorS
 
   override def deleteDocuments(term: Term): Unit = {
     ramWriter.deleteDocuments(term)
-    val td = baseReader.termDocs(term)
-    while (td.next()) {
-      pendingDeletes.offer(td.doc())
-    }
-    td.close
+    reopenRam()
+    baseReader.deleteDocuments(term)
+    super.deleteDocuments(term)
   }
 
   override def deleteDocuments(queries: Query*): Unit = queries.foreach(q => deleteDocuments(q))
@@ -73,14 +79,12 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorS
 
   def forceRealtimeToDisk() = synchronized { addToDiskAndReopenReader(swapRamDirs) }
 
-  private[managed] def addToDiskAndReopenReader(dir: Directory) {
+  def addToDiskAndReopenReader(dir: Directory) {
     addIndexes(dir)
-    super.deleteDocuments(pendingDeletes.toArray(Array[Query]()): _*)
-    pendingDeletes.clear()
-    baseReader = super.getReader
+    reopenDisk()
   }
 
-  private[managed] def swapRamDirs() = {
+  def swapRamDirs() = {
     val newRamDir = new RAMDirectory
     val newRamWriter = new IndexWriter(newRamDir, ramCfg)
     newRamWriter.commit()
