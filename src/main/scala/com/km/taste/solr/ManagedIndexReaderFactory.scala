@@ -15,7 +15,7 @@ import org.apache.lucene.analysis.standard._
 import org.apache.lucene.index.IndexWriterConfig.OpenMode._
 
 object ManagedIndexReaderFactory {
-  var pool = Executors.newCachedThreadPool
+  var pool = Executors.newScheduledThreadPool(10)
 }
 
 class ManagedIndexReaderFactory extends IndexReaderFactory {
@@ -26,7 +26,7 @@ class ManagedIndexReaderFactory extends IndexReaderFactory {
 
   override def newReader(dir: Directory, readOnly: Boolean) = {
     if (writer == null) {
-      writer = new ManagedIndexWriter(dir, cfg, ManagedIndexReaderFactory.pool)
+      writer = new ManagedIndexWriter(dir, cfg, ManagedIndexReaderFactory.pool, 10000, 10000)
     }
     writer.getReader()
   }

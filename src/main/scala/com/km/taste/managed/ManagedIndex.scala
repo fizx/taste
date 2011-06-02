@@ -13,9 +13,9 @@ object ManagedIndex {
   def stdCfg() = new IndexWriterConfig(LUCENE_31, new StandardAnalyzer(LUCENE_31)).setOpenMode(CREATE_OR_APPEND)
   def apply(path: File,
     cfg: ManagedIndexConfiguration = new DefaultManagedIndexConfiguration,
-    pool: ExecutorService = Executors.newCachedThreadPool,
+    pool: ScheduledExecutorService = Executors.newScheduledThreadPool(10),
     iwcfg: () => IndexWriterConfig = () => stdCfg()) = {
-    new ManagedIndexImpl(path, cfg, pool, iwcfg)
+    new ManagedIndexImpl(path, cfg, pool, iwcfg, cfg.flushEvery, cfg.bufferSize)
   }
 }
 
@@ -33,8 +33,10 @@ trait ManagedIndex {
 
 class ManagedIndexImpl(path: File,
   cfg: ManagedIndexConfiguration,
-  pool: ExecutorService,
-  iwcfg: () => IndexWriterConfig)
+  pool: ScheduledExecutorService,
+  iwcfg: () => IndexWriterConfig,
+  flushEvery: Long,
+  bufferSize: Int)
   extends ManagedIndex {
 
   var dir: Directory = null
@@ -42,7 +44,7 @@ class ManagedIndexImpl(path: File,
 
   def open() = {
     dir = FSDirectory.open(path)
-    writer = new ManagedIndexWriter(dir, iwcfg(), pool)
+    writer = new ManagedIndexWriter(dir, iwcfg(), pool, flushEvery, bufferSize)
   }
 
   def getReader = writer.getReader

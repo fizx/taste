@@ -9,10 +9,22 @@ import org.apache.lucene.index._
 import java.util.concurrent._
 import org.apache.lucene.util.Version._
 
-class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorService) extends 
+class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ScheduledExecutorService, flushEvery: Long, bufferSize: Int) extends 
       IndexWriter(dir, cfg) {
         
   val termInfosIndexDivisor = 128
+  
+  val flushThread = new Runnable {
+    def run = {
+      if (numDocsInRAM() > 0) forceRealtimeToDisk() 
+    }
+  }
+  val flushFuture = pool.scheduleWithFixedDelay(flushThread, flushEvery, flushEvery, TimeUnit.MILLISECONDS)
+  
+  override def close() = {
+    flushFuture.cancel(true)
+    super.close()
+  }
 
   super.commit()
   def ramCfg = new IndexWriterConfig(LUCENE_31, analyzer)
@@ -22,8 +34,9 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorS
   var ramWriter = new IndexWriter(ramDir, ramCfg)
   ramWriter.commit()
   var ramReader = IndexReader.open(ramDir)
+  var added = 0
 
-  def reopenRam() = { ramWriter.commit(); ramReader = IndexReader.open(ramDir) }
+  def reopenRam() = { ramWriter.commit(); added = 0; ramReader = IndexReader.open(ramDir) }
   
   /**
    * Tricky code.  This is the NRT reopen, however we open the reader as an unlocked writable reader!!
@@ -45,8 +58,10 @@ class ManagedIndexWriter(dir: Directory, cfg: IndexWriterConfig, pool: ExecutorS
 
   override def addDocument(doc: Document) = addDocument(doc, getAnalyzer)
   override def addDocument(doc: Document, analyzer: Analyzer) = {
+    if (added >= bufferSize) forceRealtimeToDisk()
     ramWriter.addDocument(doc, analyzer)
     reopenRam()
+    added += 1
   }
 
   override def deleteDocuments(term: Term): Unit = {
